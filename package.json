@@ -1,0 +1,34 @@
+{
+  "name": "@adaptiveworx/iac-components",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Reusable Pulumi infrastructure components for Adaptive projects",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "pulumi",
+    "iac",
+    "infrastructure",
+    "components"
+  ],
+  "author": "Adaptive Technology",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@pulumi/aws": "^7.7.0",
+    "@pulumi/pulumi": "^3.198.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
