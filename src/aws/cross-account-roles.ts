@@ -10,14 +10,14 @@
 
 import * as aws from "@pulumi/aws";
 import * as pulumi from "@pulumi/pulumi";
-import type { Environment } from "../shared/types";
+import type { Environment } from "../shared/types.js";
 import {
   buildCrossAccountPolicyName,
   buildCrossAccountRoleName,
   buildFoundationAccessPolicyName,
   buildFoundationAccessRoleName,
   getEnvironmentSegment,
-} from "../shared/naming";
+} from "../shared/naming.js";
 
 export interface CrossAccountRoleConfig {
   productLine: string;

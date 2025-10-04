@@ -2,7 +2,7 @@
  * Shared helpers for consistent resource naming across stacks and scripts.
  */
 
-import type { Environment } from "./types";
+import type { Environment } from "./types.js";
 
 /**
  * Canonical environment ordering for worx product line.

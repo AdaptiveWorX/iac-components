@@ -19,7 +19,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "clean": "rm -rf dist",
-    "prepare": "npm run build"
+    "prepare": "yarn build"
   },
   "keywords": [
     "pulumi",
@@ -34,9 +34,12 @@
     "@pulumi/pulumi": "^3.198.0"
   },
   "devDependencies": {
+    "@tsconfig/strictest": "^2.0.6",
     "typescript": "^5.9.2"
   },
   "engines": {
-    "node": ">=22.0.0"
-  }
+    "node": ">=22.0.0",
+    "yarn": ">=4.0.0"
+  },
+  "packageManager": "yarn@4.10.3"
 }
