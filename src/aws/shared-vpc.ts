@@ -32,6 +32,16 @@ export interface SharedVpcArgs {
   region: string;
 
   /**
+   * AWS account ID (used for bucket naming uniqueness)
+   */
+  accountId: string;
+
+  /**
+   * Organization prefix (e.g., "worx", "care")
+   */
+  orgPrefix: string;
+
+  /**
    * VPC CIDR block (e.g., "10.224.0.0/16")
    */
   vpcCidr: string;
@@ -71,9 +81,9 @@ export interface SharedVpcArgs {
    */
   flowLogs: {
     /**
-     * S3 bucket for flow logs (must already exist)
+     * Enable flow logs (from Infisical FLOW_LOGS_ENABLED)
      */
-    bucket: pulumi.Input<string>;
+    enabled: boolean;
 
     /**
      * Traffic type to log
@@ -84,7 +94,7 @@ export interface SharedVpcArgs {
     trafficType: "ALL" | "ACCEPT" | "REJECT";
 
     /**
-     * CloudWatch log retention in days
+     * S3 retention in days (from Infisical RETENTION_DAYS)
      */
     retentionDays?: number;
   };
@@ -213,6 +223,7 @@ export class SharedVpc extends pulumi.ComponentResource {
   public readonly internetGatewayId: pulumi.Output<string>;
   public readonly natGatewayIds: pulumi.Output<string[]>;
   public readonly ramShareArn: pulumi.Output<string>;
+  public readonly flowLogsBucketArn?: pulumi.Output<string>;
 
   constructor(
     name: string,
@@ -625,22 +636,104 @@ export class SharedVpc extends pulumi.ComponentResource {
     // OPERATIONS RESOURCES
     // ====================
 
-    // VPC Flow Logs to S3
-    new aws.ec2.FlowLog(
-      `${args.environment}-flow-logs`,
-      {
-        vpcId: vpc.id,
-        logDestinationType: "s3",
-        logDestination: pulumi.interpolate`arn:aws:s3:::${args.flowLogs.bucket}/vpc-flow-logs/`,
-        trafficType: args.flowLogs.trafficType,
-        tags: {
-          ...args.tags,
-          Name: `${args.environment}-flow-logs`,
-          Environment: args.environment,
+    // S3 Bucket for VPC Flow Logs (conditionally created)
+    let flowLogsBucket: aws.s3.BucketV2 | undefined;
+    if (args.flowLogs.enabled) {
+      flowLogsBucket = new aws.s3.BucketV2(
+        `${args.environment}-flow-logs`,
+        {
+          bucket: `${args.orgPrefix}-flow-logs-${args.accountId}-${args.region}`,
+          tags: {
+            ...args.tags,
+            Name: `${args.environment}-flow-logs`,
+            Environment: args.environment,
+            Purpose: "vpc-flow-logs",
+          },
         },
-      },
-      defaultOpts
-    );
+        defaultOpts
+      );
+
+      // Enable versioning for flow logs bucket
+      new aws.s3.BucketVersioningV2(
+        `${args.environment}-flow-logs-versioning`,
+        {
+          bucket: flowLogsBucket.id,
+          versioningConfiguration: {
+            status: "Enabled",
+          },
+        },
+        defaultOpts
+      );
+
+      // Lifecycle policy for flow logs retention
+      if (args.flowLogs.retentionDays !== undefined) {
+        new aws.s3.BucketLifecycleConfigurationV2(
+          `${args.environment}-flow-logs-lifecycle`,
+          {
+            bucket: flowLogsBucket.id,
+            rules: [
+              {
+                id: "expire-flow-logs",
+                status: "Enabled",
+                expiration: {
+                  days: args.flowLogs.retentionDays,
+                },
+              },
+            ],
+          },
+          defaultOpts
+        );
+      }
+
+      // Block public access
+      new aws.s3.BucketPublicAccessBlock(
+        `${args.environment}-flow-logs-public-access`,
+        {
+          bucket: flowLogsBucket.id,
+          blockPublicAcls: true,
+          blockPublicPolicy: true,
+          ignorePublicAcls: true,
+          restrictPublicBuckets: true,
+        },
+        defaultOpts
+      );
+
+      // Enable default encryption
+      new aws.s3.BucketServerSideEncryptionConfigurationV2(
+        `${args.environment}-flow-logs-encryption`,
+        {
+          bucket: flowLogsBucket.id,
+          rules: [
+            {
+              applyServerSideEncryptionByDefault: {
+                sseAlgorithm: "AES256",
+              },
+            },
+          ],
+        },
+        defaultOpts
+      );
+
+      // VPC Flow Logs to S3
+      new aws.ec2.FlowLog(
+        `${args.environment}-flow-logs`,
+        {
+          vpcId: vpc.id,
+          logDestinationType: "s3",
+          logDestination: pulumi.interpolate`arn:aws:s3:::${flowLogsBucket.bucket}/vpc-flow-logs/`,
+          trafficType: args.flowLogs.trafficType,
+          tags: {
+            ...args.tags,
+            Name: `${args.environment}-flow-logs`,
+            Environment: args.environment,
+          },
+        },
+        defaultOpts
+      );
+
+      // Assign flow logs bucket ARN to output
+      this.flowLogsBucketArn = flowLogsBucket.arn;
+    }
 
     // ====================
     // SHARING RESOURCES
@@ -698,6 +791,7 @@ export class SharedVpc extends pulumi.ComponentResource {
       internetGatewayId: this.internetGatewayId,
       natGatewayIds: this.natGatewayIds,
       ramShareArn: this.ramShareArn,
+      flowLogsBucketArn: this.flowLogsBucketArn,
     });
   }
 }
