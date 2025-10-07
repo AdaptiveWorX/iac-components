@@ -10,7 +10,6 @@
 
 import * as aws from "@pulumi/aws";
 import * as pulumi from "@pulumi/pulumi";
-import type { Environment } from "../shared/types.js";
 import {
   buildCrossAccountPolicyName,
   buildCrossAccountRoleName,
@@ -18,6 +17,7 @@ import {
   buildFoundationAccessRoleName,
   getEnvironmentSegment,
 } from "../shared/naming.js";
+import type { Environment } from "../shared/types.js";
 
 export interface CrossAccountRoleConfig {
   productLine: string;
@@ -41,9 +41,9 @@ export class CrossAccountIAMRoles extends pulumi.ComponentResource {
     opts?: pulumi.ComponentResourceOptions
   ) {
     super("adaptiveworx:aws:CrossAccountIAMRoles", name, {}, opts);
-    
+
     this.productLine = config.productLine;
-    
+
     // Create roles for different access patterns
     this.crossAccountRole = this.createPulumiCrossAccountRole(config);
     this.foundationAccessRole = this.createFoundationAccessRole();
@@ -53,7 +53,7 @@ export class CrossAccountIAMRoles extends pulumi.ComponentResource {
     this.registerOutputs({
       crossAccountRoleArn: this.crossAccountRole.arn,
       foundationAccessRoleArn: this.foundationAccessRole?.arn,
-      route53HealthCheckRoleArn: this.route53HealthCheckRole.arn
+      route53HealthCheckRoleArn: this.route53HealthCheckRole.arn,
     });
   }
 
@@ -63,24 +63,26 @@ export class CrossAccountIAMRoles extends pulumi.ComponentResource {
   private createPulumiCrossAccountRole(config: CrossAccountRoleConfig): aws.iam.Role {
     // Build list of trusted accounts
     const trustedAccounts = config.trustedAccountIds ?? [];
-    
+
     // Create assume role policy
     const assumeRolePolicy = {
       Version: "2012-10-17",
-      Statement: [{
-        Effect: "Allow" as const,
-        Principal: {
-          AWS: trustedAccounts.map(accountId => `arn:aws:iam::${accountId}:root`)
+      Statement: [
+        {
+          Effect: "Allow" as const,
+          Principal: {
+            AWS: trustedAccounts.map(accountId => `arn:aws:iam::${accountId}:root`),
+          },
+          Action: "sts:AssumeRole",
+          Condition: {
+            StringEquals: {
+              "sts:ExternalId": config.externalId ?? `pulumi-${this.productLine}-cross-account`,
+            },
+          },
         },
-        Action: "sts:AssumeRole",
-        Condition: {
-          StringEquals: {
-            "sts:ExternalId": config.externalId ?? `pulumi-${this.productLine}-cross-account`
-          }
-        }
-      }]
+      ],
     };
-    
+
     // Create the role
     const environmentSegment = getEnvironmentSegment(config.environment);
     const roleName = buildCrossAccountRoleName(this.productLine, config.environment);
@@ -95,12 +97,12 @@ export class CrossAccountIAMRoles extends pulumi.ComponentResource {
         tags: {
           ProductLine: this.productLine,
           Purpose: "cross-account-automation",
-          ManagedBy: "pulumi"
-        }
+          ManagedBy: "pulumi",
+        },
       },
       { parent: this }
     );
-    
+
     // Create comprehensive policy for Pulumi operations
     const policyName = buildCrossAccountPolicyName(this.productLine, config.environment);
 
@@ -116,13 +118,13 @@ export class CrossAccountIAMRoles extends pulumi.ComponentResource {
             {
               Effect: "Allow",
               Action: ["ec2:*"],
-              Resource: "*"
+              Resource: "*",
             },
             // Load Balancer permissions
             {
-              Effect: "Allow", 
+              Effect: "Allow",
               Action: ["elasticloadbalancing:*"],
-              Resource: "*"
+              Resource: "*",
             },
             // Route53 DNS permissions
             {
@@ -137,25 +139,21 @@ export class CrossAccountIAMRoles extends pulumi.ComponentResource {
                 "route53:GetHealthCheck",
                 "route53:UpdateHealthCheck",
                 "route53:DeleteHealthCheck",
-                "route53:ListHealthChecks"
+                "route53:ListHealthChecks",
               ],
-              Resource: "*"
+              Resource: "*",
             },
             // RDS permissions
             {
               Effect: "Allow",
               Action: ["rds:*"],
-              Resource: "*"
+              Resource: "*",
             },
             // Certificate Manager
             {
               Effect: "Allow",
-              Action: [
-                "acm:ListCertificates",
-                "acm:GetCertificate",
-                "acm:DescribeCertificate"
-              ],
-              Resource: "*"
+              Action: ["acm:ListCertificates", "acm:GetCertificate", "acm:DescribeCertificate"],
+              Resource: "*",
             },
             // IAM permissions (limited)
             {
@@ -167,28 +165,24 @@ export class CrossAccountIAMRoles extends pulumi.ComponentResource {
                 "iam:ListAttachedRolePolicies",
                 "iam:GetInstanceProfile",
                 "iam:ListInstanceProfiles",
-                "iam:PassRole"
+                "iam:PassRole",
               ],
-              Resource: "*"
+              Resource: "*",
             },
             // CloudWatch permissions
             {
               Effect: "Allow",
               Action: ["cloudwatch:*", "logs:*"],
-              Resource: "*"
+              Resource: "*",
             },
             // Resource tagging
             {
               Effect: "Allow",
-              Action: [
-                "tag:GetResources",
-                "tag:TagResources",
-                "tag:UntagResources"
-              ],
-              Resource: "*"
-            }
-          ]
-        })
+              Action: ["tag:GetResources", "tag:TagResources", "tag:UntagResources"],
+              Resource: "*",
+            },
+          ],
+        }),
       },
       { parent: this }
     );
@@ -204,28 +198,30 @@ export class CrossAccountIAMRoles extends pulumi.ComponentResource {
       // Foundation account IDs (hardcoded as they're static)
       const foundationAccountIds = [
         "339932683779", // adaptive-master
-        "304624012516", // adaptive-audit  
+        "304624012516", // adaptive-audit
         "346692023911", // adaptive-backup-admin
         "743833338893", // adaptive-central-backup
-        "539920679260"  // adaptive-log-archive
+        "539920679260", // adaptive-log-archive
       ];
-      
+
       const assumeRolePolicy = {
         Version: "2012-10-17",
-        Statement: [{
-          Effect: "Allow" as const,
-          Principal: {
-            AWS: foundationAccountIds.map(id => `arn:aws:iam::${id}:root`)
+        Statement: [
+          {
+            Effect: "Allow" as const,
+            Principal: {
+              AWS: foundationAccountIds.map(id => `arn:aws:iam::${id}:root`),
+            },
+            Action: "sts:AssumeRole",
+            Condition: {
+              StringEquals: {
+                "sts:ExternalId": `foundation-access-${this.productLine}`,
+              },
+            },
           },
-          Action: "sts:AssumeRole",
-          Condition: {
-            StringEquals: {
-              "sts:ExternalId": `foundation-access-${this.productLine}`
-            }
-          }
-        }]
+        ],
       };
-      
+
       const roleName = buildFoundationAccessRoleName(this.productLine);
 
       const role = new aws.iam.Role(
@@ -238,12 +234,12 @@ export class CrossAccountIAMRoles extends pulumi.ComponentResource {
           tags: {
             ProductLine: this.productLine,
             Purpose: "foundation-access",
-            ManagedBy: "pulumi"
-          }
+            ManagedBy: "pulumi",
+          },
         },
         { parent: this }
       );
-      
+
       // Limited read-only policy for foundation access
       const policyName = buildFoundationAccessPolicyName(this.productLine);
 
@@ -254,25 +250,27 @@ export class CrossAccountIAMRoles extends pulumi.ComponentResource {
           role: role.id,
           policy: JSON.stringify({
             Version: "2012-10-17",
-            Statement: [{
-              Effect: "Allow",
-              Action: [
-                "ec2:Describe*",
-                "rds:Describe*",
-                "elasticloadbalancing:Describe*",
-                "route53:Get*",
-                "route53:List*",
-                "cloudwatch:Get*",
-                "cloudwatch:List*",
-                "logs:Describe*",
-                "logs:Get*",
-                "iam:Get*",
-                "iam:List*",
-                "tag:GetResources"
-              ],
-              Resource: "*"
-            }]
-          })
+            Statement: [
+              {
+                Effect: "Allow",
+                Action: [
+                  "ec2:Describe*",
+                  "rds:Describe*",
+                  "elasticloadbalancing:Describe*",
+                  "route53:Get*",
+                  "route53:List*",
+                  "cloudwatch:Get*",
+                  "cloudwatch:List*",
+                  "logs:Describe*",
+                  "logs:Get*",
+                  "iam:Get*",
+                  "iam:List*",
+                  "tag:GetResources",
+                ],
+                Resource: "*",
+              },
+            ],
+          }),
         },
         { parent: this }
       );
@@ -298,25 +296,27 @@ export class CrossAccountIAMRoles extends pulumi.ComponentResource {
         name: roleName,
         assumeRolePolicy: JSON.stringify({
           Version: "2012-10-17",
-          Statement: [{
-            Effect: "Allow",
-            Principal: {
-              Service: "route53healthcheck.amazonaws.com"
+          Statement: [
+            {
+              Effect: "Allow",
+              Principal: {
+                Service: "route53healthcheck.amazonaws.com",
+              },
+              Action: "sts:AssumeRole",
             },
-            Action: "sts:AssumeRole"
-          }]
+          ],
         }),
         description: `Role for Route53 health checks in ${this.productLine} secops`,
         tags: {
           ProductLine: this.productLine,
           Purpose: "route53-health-checks",
-          ManagedBy: "pulumi"
-        }
+          ManagedBy: "pulumi",
+        },
       },
       { parent: this }
     );
-    
-    // Policy for health check role  
+
+    // Policy for health check role
     const policyName = `${this.productLine}-route53-health-check-policy`;
 
     new aws.iam.RolePolicy(
@@ -326,12 +326,14 @@ export class CrossAccountIAMRoles extends pulumi.ComponentResource {
         role: role.id,
         policy: JSON.stringify({
           Version: "2012-10-17",
-          Statement: [{
-            Effect: "Allow",
-            Action: ["sns:Publish"],
-            Resource: `arn:aws:sns:*:*:${this.productLine}-health-*`
-          }]
-        })
+          Statement: [
+            {
+              Effect: "Allow",
+              Action: ["sns:Publish"],
+              Resource: `arn:aws:sns:*:*:${this.productLine}-health-*`,
+            },
+          ],
+        }),
       },
       { parent: this }
     );
@@ -359,11 +361,8 @@ export function createCrossAccountIAMSetup(
     config.trustedAccountIds = trustedAccountIds;
   }
 
-  const iamRoles = new CrossAccountIAMRoles(
-    `${productLine}-cross-account-iam`,
-    config
-  );
-  
+  const iamRoles = new CrossAccountIAMRoles(`${productLine}-cross-account-iam`, config);
+
   return iamRoles;
 }
 
@@ -373,7 +372,7 @@ export function createCrossAccountIAMSetup(
 export function getCrossAccountRoleArn(
   accountId: string,
   productLine: string,
-  environment: Environment,
+  environment: Environment
 ): string {
   return `arn:aws:iam::${accountId}:role/${buildCrossAccountRoleName(productLine, environment)}`;
 }
@@ -390,22 +389,24 @@ export function getFoundationAccessRoleArn(accountId: string, productLine: strin
  */
 export const PULUMI_EXECUTION_POLICY_TEMPLATE = {
   Version: "2012-10-17",
-  Statement: [{
-    Effect: "Allow" as const,
-    Action: "sts:AssumeRole",
-    Resource: [
-      "arn:aws:iam::*:role/*-pulumi-cross-account",
-      "arn:aws:iam::*:role/*-foundation-access"
+  Statement: [
+    {
+      Effect: "Allow" as const,
+      Action: "sts:AssumeRole",
+      Resource: [
+        "arn:aws:iam::*:role/*-pulumi-cross-account",
+        "arn:aws:iam::*:role/*-foundation-access",
       ],
-    Condition: {
-      StringEquals: {
-        "sts:ExternalId": [
-          "pulumi-worx-cross-account",
-          "pulumi-care-cross-account", 
-          "foundation-access-worx",
-          "foundation-access-care"
-        ]
-      }
-    }
-  }]
+      Condition: {
+        StringEquals: {
+          "sts:ExternalId": [
+            "pulumi-worx-cross-account",
+            "pulumi-care-cross-account",
+            "foundation-access-worx",
+            "foundation-access-care",
+          ],
+        },
+      },
+    },
+  ],
 };

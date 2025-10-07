@@ -1,6 +1,6 @@
 {
   "name": "@adaptiveworx/iac-components",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "type": "module",
   "description": "Reusable Pulumi infrastructure components for Adaptive projects",
   "main": "dist/index.js",
@@ -19,7 +19,11 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "clean": "rm -rf dist",
-    "prepare": "yarn build"
+    "prepare": "yarn build",
+    "lint": "biome check --write .",
+    "lint:check": "biome check --max-diagnostics=0 .",
+    "format": "biome format --write .",
+    "format:check": "biome format ."
   },
   "keywords": [
     "pulumi",
@@ -34,6 +38,7 @@
     "@pulumi/pulumi": "^3.200.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.2.5",
     "@tsconfig/strictest": "^2.0.6",
     "typescript": "^5.9.2"
   },

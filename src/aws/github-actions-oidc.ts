@@ -54,7 +54,7 @@ function deriveAssumeRoleName(roleName: string): string {
   if (!roleName.endsWith(ROLE_SUFFIX)) {
     throw new Error(
       `Unable to derive assume role name from '${roleName}'. Expected suffix '${ROLE_SUFFIX}'. ` +
-      "Provide 'assumeRoleName' when using a custom naming pattern."
+        "Provide 'assumeRoleName' when using a custom naming pattern."
     );
   }
 
@@ -65,12 +65,12 @@ function deriveAssumeRoleName(roleName: string): string {
  * Derive the GitHub subject patterns per environment.
  * Matches existing Terraform conditions.
  */
-function getSubjectPatterns(environment: GithubOidcEnvironmentConfig["name"], githubOrg: string): string[] {
+function getSubjectPatterns(
+  environment: GithubOidcEnvironmentConfig["name"],
+  githubOrg: string
+): string[] {
   if (environment === "secops") {
-    return [
-      `repo:${githubOrg}/iac-worx:*`,
-      `repo:${githubOrg}/iac-modules:*`,
-    ];
+    return [`repo:${githubOrg}/iac-worx:*`, `repo:${githubOrg}/iac-modules:*`];
   }
 
   const base = `repo:${githubOrg}/iac-worx`;
@@ -85,16 +85,18 @@ function getSubjectPatterns(environment: GithubOidcEnvironmentConfig["name"], gi
 function buildProvider(
   name: string,
   args: GithubOidcEnvironmentConfig,
-  region: aws.Region,
+  region: aws.Region
 ): aws.Provider {
   const assumeRoleName = args.assumeRoleName ?? deriveAssumeRoleName(args.roleName);
 
   return new aws.Provider(name, {
     region,
-    assumeRoles: [{
-      roleArn: `arn:aws:iam::${args.accountId}:role/${assumeRoleName}`,
-      sessionName: `pulumi-github-oidc-${args.name}`,
-    }],
+    assumeRoles: [
+      {
+        roleArn: `arn:aws:iam::${args.accountId}:role/${assumeRoleName}`,
+        sessionName: `pulumi-github-oidc-${args.name}`,
+      },
+    ],
     defaultTags: {
       tags: {
         ManagedBy: "pulumi",
@@ -108,7 +110,7 @@ function buildProvider(
 function buildTrustPolicy(
   args: GithubOidcEnvironmentConfig,
   githubOrg: string,
-  oidcProviderArn: pulumi.Output<string>,
+  oidcProviderArn: pulumi.Output<string>
 ): pulumi.Output<string> {
   const subjects = getSubjectPatterns(args.name, githubOrg);
 
@@ -117,10 +119,12 @@ function buildTrustPolicy(
       {
         actions: ["sts:AssumeRoleWithWebIdentity"],
         effect: "Allow",
-        principals: [{
-          type: "Federated",
-          identifiers: [oidcProviderArn],
-        }],
+        principals: [
+          {
+            type: "Federated",
+            identifiers: [oidcProviderArn],
+          },
+        ],
         conditions: [
           {
             test: "StringEquals",
@@ -145,43 +149,55 @@ function buildEnvironment(
   region: aws.Region,
   githubOrg: string,
   thumbprints: readonly string[],
-  managementTags: Record<string, string>,
+  managementTags: Record<string, string>
 ): EnvironmentArtifacts {
   const provider = buildProvider(`${baseName}-${cfg.name}`, cfg, region);
 
-  const oidcProvider = new aws.iam.OpenIdConnectProvider(`${baseName}-${cfg.name}`, {
-    url: "https://token.actions.githubusercontent.com",
-    clientIdLists: ["sts.amazonaws.com"],
-    thumbprintLists: [...thumbprints],
-    tags: {
-      Name: "github-actions-oidc",
-      Environment: cfg.name,
-      ManagedBy: "pulumi",
-      ...managementTags,
-      ...cfg.tags,
+  const oidcProvider = new aws.iam.OpenIdConnectProvider(
+    `${baseName}-${cfg.name}`,
+    {
+      url: "https://token.actions.githubusercontent.com",
+      clientIdLists: ["sts.amazonaws.com"],
+      thumbprintLists: [...thumbprints],
+      tags: {
+        Name: "github-actions-oidc",
+        Environment: cfg.name,
+        ManagedBy: "pulumi",
+        ...managementTags,
+        ...cfg.tags,
+      },
     },
-  }, { provider, parent });
+    { provider, parent }
+  );
 
   const assumeRolePolicy = buildTrustPolicy(cfg, githubOrg, oidcProvider.arn);
 
-  const role = new aws.iam.Role(`${baseName}-${cfg.name}`, {
-    name: cfg.roleName,
-    description: `GitHub Actions deployment role for ${cfg.name}`,
-    assumeRolePolicy,
-    tags: {
-      Name: cfg.roleName,
-      Environment: cfg.name,
-      Service: "github-actions",
-      ManagedBy: "pulumi",
-      ...managementTags,
-      ...cfg.tags,
+  const role = new aws.iam.Role(
+    `${baseName}-${cfg.name}`,
+    {
+      name: cfg.roleName,
+      description: `GitHub Actions deployment role for ${cfg.name}`,
+      assumeRolePolicy,
+      tags: {
+        Name: cfg.roleName,
+        Environment: cfg.name,
+        Service: "github-actions",
+        ManagedBy: "pulumi",
+        ...managementTags,
+        ...cfg.tags,
+      },
     },
-  }, { provider, parent });
+    { provider, parent }
+  );
 
-  const policyAttachment = new aws.iam.RolePolicyAttachment(`${baseName}-${cfg.name}-attachment`, {
-    role: role.name,
-    policyArn: cfg.policyArn,
-  }, { provider, parent });
+  const policyAttachment = new aws.iam.RolePolicyAttachment(
+    `${baseName}-${cfg.name}-attachment`,
+    {
+      role: role.name,
+      policyArn: cfg.policyArn,
+    },
+    { provider, parent }
+  );
 
   return {
     provider,
@@ -210,21 +226,25 @@ export class GithubActionsOidc extends pulumi.ComponentResource {
         args.awsRegion,
         args.githubOrg,
         thumbprints,
-        managementTags,
+        managementTags
       );
 
       artifacts[envCfg.name] = envArtifacts;
     }
 
-    this.roleArns = pulumi.all(
-      Object.entries(artifacts).map(([env, art]) => pulumi.output(art.role.arn).apply((arn) => ({ env, arn }))),
-    ).apply((entries) => {
-      const result: Record<string, string> = {};
-      for (const entry of entries) {
-        result[entry.env] = entry.arn;
-      }
-      return result;
-    });
+    this.roleArns = pulumi
+      .all(
+        Object.entries(artifacts).map(([env, art]) =>
+          pulumi.output(art.role.arn).apply(arn => ({ env, arn }))
+        )
+      )
+      .apply(entries => {
+        const result: Record<string, string> = {};
+        for (const entry of entries) {
+          result[entry.env] = entry.arn;
+        }
+        return result;
+      });
 
     this.registerOutputs({
       roleArns: this.roleArns,

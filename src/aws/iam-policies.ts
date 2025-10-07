@@ -26,11 +26,11 @@ export interface PolicyDocument {
 /**
  * Route53 DNS management policy for secops accounts
  */
-export class Route53Policy {
-  static getPolicyDocument(): PolicyDocument {
-    return {
-      Version: "2012-10-17",
-      Statement: [{
+export function getRoute53PolicyDocument(): PolicyDocument {
+  return {
+    Version: "2012-10-17",
+    Statement: [
+      {
         Effect: "Allow",
         Action: [
           "route53:ChangeResourceRecordSets",
@@ -39,22 +39,22 @@ export class Route53Policy {
           "route53:GetHealthCheck",
           "route53:CreateHealthCheck",
           "route53:DeleteHealthCheck",
-          "route53:UpdateHealthCheck"
+          "route53:UpdateHealthCheck",
         ],
-        Resource: "*"
-      }]
-    };
-  }
+        Resource: "*",
+      },
+    ],
+  };
 }
 
 /**
  * Read ALB information for DNS updates and health checks
  */
-export class ALBDescribePolicy {
-  static getPolicyDocument(): PolicyDocument {
-    return {
-      Version: "2012-10-17",
-      Statement: [{
+export function getALBDescribePolicyDocument(): PolicyDocument {
+  return {
+    Version: "2012-10-17",
+    Statement: [
+      {
         Effect: "Allow",
         Action: [
           "elasticloadbalancing:DescribeLoadBalancers",
@@ -62,209 +62,201 @@ export class ALBDescribePolicy {
           "elasticloadbalancing:DescribeListeners",
           "elasticloadbalancing:DescribeRules",
           "ec2:DescribeInstances",
-          "ec2:DescribeNetworkInterfaces"
+          "ec2:DescribeNetworkInterfaces",
         ],
-        Resource: "*"
-      }]
-    };
-  }
+        Resource: "*",
+      },
+    ],
+  };
 }
 
 /**
  * Read RDS database information for DNS updates
  */
-export class RDSDescribePolicy {
-  static getPolicyDocument(): PolicyDocument {
-    return {
-      Version: "2012-10-17",
-      Statement: [{
+export function getRDSDescribePolicyDocument(): PolicyDocument {
+  return {
+    Version: "2012-10-17",
+    Statement: [
+      {
         Effect: "Allow",
         Action: [
           "rds:DescribeDBInstances",
           "rds:DescribeDBClusters",
           "rds:ListTagsForResource",
-          "rds:DescribeDBSubnetGroups"
+          "rds:DescribeDBSubnetGroups",
         ],
-        Resource: "*"
-      }]
-    };
-  }
+        Resource: "*",
+      },
+    ],
+  };
 }
 
 /**
  * Read EC2 instance information for DNS updates
  */
-export class EC2DescribePolicy {
-  static getPolicyDocument(): PolicyDocument {
-    return {
-      Version: "2012-10-17",
-      Statement: [{
+export function getEC2DescribePolicyDocument(): PolicyDocument {
+  return {
+    Version: "2012-10-17",
+    Statement: [
+      {
         Effect: "Allow",
         Action: [
           "ec2:DescribeInstances",
           "ec2:DescribeNetworkInterfaces",
           "ec2:DescribeSecurityGroups",
           "ec2:DescribeVpcs",
-          "ec2:DescribeSubnets"
+          "ec2:DescribeSubnets",
         ],
-        Resource: "*"
-      }]
-    };
-  }
+        Resource: "*",
+      },
+    ],
+  };
 }
 
 /**
  * Read CloudWatch metrics for health checks
  */
-export class CloudWatchReadPolicy {
-  static getPolicyDocument(): PolicyDocument {
-    return {
-      Version: "2012-10-17",
-      Statement: [{
+export function getCloudWatchReadPolicyDocument(): PolicyDocument {
+  return {
+    Version: "2012-10-17",
+    Statement: [
+      {
         Effect: "Allow",
         Action: [
           "cloudwatch:GetMetricStatistics",
           "cloudwatch:ListMetrics",
-          "cloudwatch:DescribeAlarms"
+          "cloudwatch:DescribeAlarms",
         ],
-        Resource: "*"
-      }]
-    };
-  }
+        Resource: "*",
+      },
+    ],
+  };
 }
 
 /**
  * Read S3 bucket information for static website DNS
  */
-export class S3ReadPolicy {
-  static getPolicyDocument(): PolicyDocument {
-    return {
-      Version: "2012-10-17",
-      Statement: [{
+export function getS3ReadPolicyDocument(): PolicyDocument {
+  return {
+    Version: "2012-10-17",
+    Statement: [
+      {
         Effect: "Allow",
-        Action: [
-          "s3:GetBucketLocation",
-          "s3:GetBucketWebsite",
-          "s3:ListBucket"
-        ],
-        Resource: "*"
-      }]
-    };
-  }
+        Action: ["s3:GetBucketLocation", "s3:GetBucketWebsite", "s3:ListBucket"],
+        Resource: "*",
+      },
+    ],
+  };
 }
 
 /**
  * Read CloudFront distribution information for DNS
  */
-export class CloudFrontDescribePolicy {
-  static getPolicyDocument(): PolicyDocument {
-    return {
-      Version: "2012-10-17",
-      Statement: [{
+export function getCloudFrontDescribePolicyDocument(): PolicyDocument {
+  return {
+    Version: "2012-10-17",
+    Statement: [
+      {
         Effect: "Allow",
         Action: [
           "cloudfront:GetDistribution",
           "cloudfront:ListDistributions",
-          "cloudfront:GetDistributionConfig"
+          "cloudfront:GetDistributionConfig",
         ],
-        Resource: "*"
-      }]
-    };
-  }
+        Resource: "*",
+      },
+    ],
+  };
 }
 
 /**
  * Read ACM certificate information for SSL validation
  */
-export class ACMDescribePolicy {
-  static getPolicyDocument(): PolicyDocument {
-    return {
-      Version: "2012-10-17",
-      Statement: [{
+export function getACMDescribePolicyDocument(): PolicyDocument {
+  return {
+    Version: "2012-10-17",
+    Statement: [
+      {
         Effect: "Allow",
-        Action: [
-          "acm:ListCertificates",
-          "acm:DescribeCertificate",
-          "acm:GetCertificate"
-        ],
-        Resource: "*"
-      }]
-    };
-  }
+        Action: ["acm:ListCertificates", "acm:DescribeCertificate", "acm:GetCertificate"],
+        Resource: "*",
+      },
+    ],
+  };
 }
 
 /**
- * Policy class interface for type safety
+ * Attach multiple policies to a role
  */
-/**
- * Utility class for attaching multiple policies to roles
- */
-export class PolicyAttacher {
-  /**
-   * Attach multiple policies to a role
-   */
-  static attachPoliciesToRole(
-    roleName: string,
-    policies: (typeof Route53Policy)[],
-    orgPrefix: string,
-    environment: string,
-    opts?: ResourceOptions
-  ): aws.iam.RolePolicy[] {
-    const attachedPolicies: aws.iam.RolePolicy[] = [];
-    
-    for (const policyCtor of policies) {
-      const policyName = policyCtor.name.replace("Policy", "").toLowerCase();
-      
-      const rolePolicy = new aws.iam.RolePolicy(
-        `${orgPrefix}-${policyName}-policy-${environment}`,
-        {
-          role: roleName,
-          policy: JSON.stringify(policyCtor.getPolicyDocument())
-        },
-        opts
-      );
-      
-      attachedPolicies.push(rolePolicy);
-    }
-    
-    return attachedPolicies;
+export function attachPoliciesToRole(
+  roleName: string,
+  policies: ReadonlyArray<{ readonly name: string; readonly document: PolicyDocument }>,
+  orgPrefix: string,
+  environment: string,
+  opts?: ResourceOptions
+): aws.iam.RolePolicy[] {
+  const attachedPolicies: aws.iam.RolePolicy[] = [];
+
+  for (const policy of policies) {
+    const policyName = policy.name.toLowerCase();
+
+    const rolePolicy = new aws.iam.RolePolicy(
+      `${orgPrefix}-${policyName}-policy-${environment}`,
+      {
+        role: roleName,
+        policy: JSON.stringify(policy.document),
+      },
+      opts
+    );
+
+    attachedPolicies.push(rolePolicy);
   }
+
+  return attachedPolicies;
 }
 
 /**
  * Pre-defined combinations of policies for common use cases
  */
-export class PolicyCombinations {
+export const PolicyCombinations = {
   // ALB + DNS operations (most common)
-  static readonly ALB_DNS = [Route53Policy, ALBDescribePolicy, EC2DescribePolicy];
-  
+  ALB_DNS: [
+    { name: "route53", document: getRoute53PolicyDocument() },
+    { name: "alb-describe", document: getALBDescribePolicyDocument() },
+    { name: "ec2-describe", document: getEC2DescribePolicyDocument() },
+  ],
+
   // RDS + DNS operations
-  static readonly DATABASE_DNS = [Route53Policy, RDSDescribePolicy, EC2DescribePolicy];
-  
+  DATABASE_DNS: [
+    { name: "route53", document: getRoute53PolicyDocument() },
+    { name: "rds-describe", document: getRDSDescribePolicyDocument() },
+    { name: "ec2-describe", document: getEC2DescribePolicyDocument() },
+  ],
+
   // Static website + DNS (S3/CloudFront)
-  static readonly STATIC_WEBSITE_DNS = [
-    Route53Policy, 
-    S3ReadPolicy, 
-    CloudFrontDescribePolicy, 
-    ACMDescribePolicy
-  ];
-  
+  STATIC_WEBSITE_DNS: [
+    { name: "route53", document: getRoute53PolicyDocument() },
+    { name: "s3-read", document: getS3ReadPolicyDocument() },
+    { name: "cloudfront-describe", document: getCloudFrontDescribePolicyDocument() },
+    { name: "acm-describe", document: getACMDescribePolicyDocument() },
+  ],
+
   // Health check monitoring
-  static readonly HEALTH_CHECK_MONITORING = [
-    Route53Policy, 
-    CloudWatchReadPolicy, 
-    ALBDescribePolicy
-  ];
-  
+  HEALTH_CHECK_MONITORING: [
+    { name: "route53", document: getRoute53PolicyDocument() },
+    { name: "cloudwatch-read", document: getCloudWatchReadPolicyDocument() },
+    { name: "alb-describe", document: getALBDescribePolicyDocument() },
+  ],
+
   // Full application stack (ALB + RDS + monitoring)
-  static readonly FULL_APPLICATION_STACK = [
-    Route53Policy,
-    ALBDescribePolicy,
-    RDSDescribePolicy,
-    EC2DescribePolicy,
-    CloudWatchReadPolicy
-  ];
-}
+  FULL_APPLICATION_STACK: [
+    { name: "route53", document: getRoute53PolicyDocument() },
+    { name: "alb-describe", document: getALBDescribePolicyDocument() },
+    { name: "rds-describe", document: getRDSDescribePolicyDocument() },
+    { name: "ec2-describe", document: getEC2DescribePolicyDocument() },
+    { name: "cloudwatch-read", document: getCloudWatchReadPolicyDocument() },
+  ],
+} as const;
 
 /**
  * Attach a pre-defined combination of policies to a role
@@ -276,13 +268,7 @@ export function attachPolicyCombination(
   environment: string,
   opts?: ResourceOptions
 ): aws.iam.RolePolicy[] {
-  const combination = PolicyCombinations[combinationName] as Array<typeof Route53Policy>;
+  const combination = PolicyCombinations[combinationName];
 
-  return PolicyAttacher.attachPoliciesToRole(
-    roleName,
-    combination,
-    orgPrefix,
-    environment,
-    opts
-  );
+  return attachPoliciesToRole(roleName, combination, orgPrefix, environment, opts);
 }
