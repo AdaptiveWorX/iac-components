@@ -92,17 +92,19 @@ This repository enforces strict code quality:
 
 All quality checks run automatically in CI/CD before publishing.
 
-## OIDC Publishing
+## OIDC Provenance
 
-This repository uses **GitHub Actions OIDC** for npm publishing:
+This repository uses **GitHub Actions OIDC** for npm **provenance signing**:
 
-- ✅ No long-lived npm tokens
-- ✅ Automatic token rotation per workflow run
-- ✅ Scoped to specific workflow file
-- ✅ Full provenance and transparency logging
-- ❌ **NEVER** suggest using `NPM_TOKEN` secrets
+- ✅ Cryptographic proof of package origin (Sigstore transparency log)
+- ✅ Build attestations linked to GitHub Actions workflow
+- ✅ Supply chain security verification
+- ✅ Automatic signing with `--provenance` flag
 
-The `publish.yml` workflow is configured as a **Trusted Publisher** on npm.
+**Authentication**: Uses `NPM_TOKEN` secret (automation token)
+**Provenance**: Uses OIDC to cryptographically sign the package
+
+The `publish.yml` workflow is configured as a **Trusted Publisher** on npm for provenance attestations.
 
 ---
 
