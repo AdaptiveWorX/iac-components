@@ -70,6 +70,29 @@ When asked to prepare a release:
 4. ❌ **NEVER** run `npm publish`
 5. ✅ Tell user to push tags to trigger CI/CD
 
+**Version Tag Patterns:**
+
+**Stable releases** (triggers `publish.yml`):
+```bash
+v0.4.0      # Patch/minor/major releases
+v1.0.0      # Major milestone
+```
+
+**Pre-releases** (triggers `publish-prerelease.yml`):
+```bash
+v0.4.0-alpha.1   # Early testing (npm install @pkg@alpha)
+v0.4.0-beta.1    # Feature complete testing (npm install @pkg@beta)
+v0.4.0-rc.1      # Release candidate (npm install @pkg@rc)
+v0.4.0-test.1    # CI/CD pipeline testing (npm install @pkg@test)
+v0.4.0-next.1    # Development branch (npm install @pkg@next)
+```
+
+**Not published** (local tags only):
+```bash
+v0.4.0-local     # Local development, no workflow trigger
+checkpoint-xyz   # Arbitrary tags without 'v*.*.*' format
+```
+
 ### Testing CI/CD Pipeline
 
 When testing the publish workflow:

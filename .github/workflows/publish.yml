@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*.*.*'
+      - '!v*.*.*-*'  # Exclude pre-release tags (alpha, beta, rc, test, etc.)
 
 jobs:
   publish:
