@@ -21,7 +21,6 @@ jobs:
         with:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
-          scope: '@adaptiveworx'
           cache: 'yarn'
 
       - name: Install dependencies
