@@ -72,26 +72,34 @@ When asked to prepare a release:
 
 **Version Tag Patterns:**
 
-**Stable releases** (triggers `publish.yml`):
+All version tags trigger `publish.yml`, but with different npm dist-tags:
+
+**Stable releases** (published as `@latest`):
 ```bash
-v0.4.0      # Patch/minor/major releases
-v1.0.0      # Major milestone
+v0.4.0      # npm install @adaptiveworx/iac-components
+v1.0.0      # Gets installed by default
 ```
 
-**Pre-releases** (triggers `publish-prerelease.yml`):
+**Pre-releases** (published with corresponding dist-tag):
 ```bash
-v0.4.0-alpha.1   # Early testing (npm install @pkg@alpha)
-v0.4.0-beta.1    # Feature complete testing (npm install @pkg@beta)
-v0.4.0-rc.1      # Release candidate (npm install @pkg@rc)
-v0.4.0-test.1    # CI/CD pipeline testing (npm install @pkg@test)
-v0.4.0-next.1    # Development branch (npm install @pkg@next)
+v0.4.0-alpha.1   # npm install @adaptiveworx/iac-components@alpha
+v0.4.0-beta.1    # npm install @adaptiveworx/iac-components@beta
+v0.4.0-rc.1      # npm install @adaptiveworx/iac-components@rc
+v0.4.0-test.1    # npm install @adaptiveworx/iac-components@test
+v0.4.0-next.1    # npm install @adaptiveworx/iac-components@next
 ```
 
 **Not published** (local tags only):
 ```bash
-v0.4.0-local     # Local development, no workflow trigger
+v0.4.0-local     # No workflow trigger (no '-alpha/-beta/-rc/-test/-next' suffix)
 checkpoint-xyz   # Arbitrary tags without 'v*.*.*' format
 ```
+
+**How it works:**
+- The workflow automatically detects pre-release identifiers in the tag
+- Stable versions → published as `@latest` (default)
+- Pre-releases → published with their own dist-tag (won't affect `@latest`)
+- This allows CI/CD testing without polluting stable releases
 
 ### Testing CI/CD Pipeline
 
