@@ -1,6 +1,6 @@
 {
   "name": "@adaptiveworx/iac-components",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "type": "module",
   "description": "Reusable Pulumi infrastructure components for Adaptive projects",
   "main": "dist/index.js",
