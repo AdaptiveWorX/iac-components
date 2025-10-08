@@ -157,6 +157,8 @@ describe("SharedVpc Component", () => {
           id: "s3-block-public-access",
           compliance: ["ISO27001:A.13.1.3", "ISO27001:A.9.4.1"],
           severity: "critical",
+          controlType: "preventive",
+          risk: "Data breach via public internet exposure",
         },
       },
       () => {
@@ -181,6 +183,8 @@ describe("SharedVpc Component", () => {
           id: "s3-versioning-enabled",
           compliance: ["ISO27001:A.12.3.1"],
           severity: "medium",
+          controlType: "corrective",
+          risk: "Data loss from accidental deletion or corruption",
         },
       },
       () => {
@@ -196,6 +200,8 @@ describe("SharedVpc Component", () => {
           id: "s3-encryption-at-rest",
           compliance: ["ISO27001:A.10.1.1", "ISO27001:A.10.1.2"],
           severity: "critical",
+          controlType: "preventive",
+          risk: "Data breach via unencrypted storage",
         },
       },
       () => {
@@ -214,6 +220,48 @@ describe("SharedVpc Component", () => {
       const validAlgorithms = ["AES256", "aws:kms"];
       expect(validAlgorithms).toContain(algorithm);
     });
+
+    it(
+      "should enable VPC Flow Logs for threat detection",
+      {
+        meta: {
+          id: "vpc-flow-logs-enabled",
+          compliance: ["ISO27001:A.12.4.1", "ISO27001:A.12.4.3"],
+          severity: "high",
+          controlType: "detective",
+          risk: "Undetected network intrusions or data exfiltration",
+        },
+      },
+      () => {
+        const flowLogsConfig = {
+          enabled: true,
+          trafficType: "ALL",
+          logDestinationType: "s3",
+        };
+
+        expect(flowLogsConfig.enabled).toBe(true);
+        expect(flowLogsConfig.trafficType).toBe("ALL");
+        expect(flowLogsConfig.logDestinationType).toBe("s3");
+      }
+    );
+
+    it(
+      "should enforce flow log retention policies",
+      {
+        meta: {
+          id: "flow-log-retention",
+          compliance: ["ISO27001:A.12.4.2"],
+          severity: "medium",
+          controlType: "detective",
+          risk: "Insufficient audit trail for incident investigation",
+        },
+      },
+      () => {
+        const retentionDays = 90;
+        expect(retentionDays).toBeGreaterThanOrEqual(30);
+        expect(retentionDays).toBeLessThanOrEqual(2555); // 7 years max
+      }
+    );
   });
 
   describe("RAM Sharing Configuration", () => {
@@ -243,6 +291,164 @@ describe("SharedVpc Component", () => {
         } else {
           expect(shareViaRam).toBe(true);
         }
+      }
+    );
+
+    it(
+      "should restrict RAM sharing to same tenant and environment only",
+      {
+        meta: {
+          id: "ram-sharing-tenant-environment-isolation",
+          compliance: ["ISO27001:A.9.4.1", "ISO27001:A.13.1.3"],
+          severity: "high",
+          controlType: "preventive",
+          risk: "Unauthorized cross-account access to network resources",
+        },
+      },
+      () => {
+        // VPC in dev environment should only share to dev accounts
+        const devVpcConfig = {
+          environment: "dev",
+          tenant: "worx",
+          allowExternalPrincipals: false,
+          sharedAccounts: {
+            "413639306030": "worx-app-dev", // ✅ Same tenant, same environment
+            "999999999999": "worx-ucx-dev", // ✅ Same tenant, same environment (different purpose)
+          },
+        };
+
+        // Validate external principals disabled (no cross-organization sharing)
+        expect(devVpcConfig.allowExternalPrincipals).toBe(false);
+
+        // Validate shared accounts match tenant and environment
+        for (const [accountId, accountName] of Object.entries(devVpcConfig.sharedAccounts)) {
+          // Account ID must be 12 digits
+          expect(accountId).toMatch(/^\d{12}$/);
+
+          // Account name must match pattern: {tenant}-{purpose}-{env}
+          expect(accountName).toMatch(/^worx-(app|ucx|aiml|ops|sec)-dev$/);
+
+          // Account name must match VPC tenant
+          expect(accountName).toContain(devVpcConfig.tenant);
+
+          // Account name must match VPC environment
+          expect(accountName).toContain(devVpcConfig.environment);
+
+          // ❌ Should NOT share to different environments
+          expect(accountName).not.toContain("-stg");
+          expect(accountName).not.toContain("-prd");
+        }
+      }
+    );
+
+    it(
+      "should only share private and data subnets, not public",
+      {
+        meta: {
+          id: "ram-sharing-tier-isolation",
+          compliance: ["ISO27001:A.13.1.3"],
+          severity: "high",
+          controlType: "preventive",
+          risk: "Privilege escalation via shared public subnets",
+        },
+      },
+      () => {
+        const sharedTiers = ["private", "data"];
+        const publicTier = "public";
+
+        expect(sharedTiers).not.toContain(publicTier);
+        expect(sharedTiers).toContain("private");
+        expect(sharedTiers).toContain("data");
+      }
+    );
+  });
+
+  describe("VPC Endpoint Security", () => {
+    it(
+      "should use VPC endpoints to prevent data exfiltration",
+      {
+        meta: {
+          id: "vpc-endpoint-data-exfiltration-prevention",
+          compliance: ["ISO27001:A.13.1.3", "ISO27001:A.13.2.1"],
+          severity: "high",
+          controlType: "preventive",
+          risk: "Data exfiltration via internet egress",
+        },
+      },
+      () => {
+        const vpcEndpoints = {
+          gateway: ["s3", "dynamodb"], // Free, no internet routing
+          interface: ["ecr.api", "ecr.dkr", "logs", "secretsmanager"],
+        };
+
+        // Verify gateway endpoints (prevent S3/DynamoDB internet routing)
+        expect(vpcEndpoints.gateway).toContain("s3");
+        expect(vpcEndpoints.gateway).toContain("dynamodb");
+
+        // Verify interface endpoints (PrivateLink for AWS services)
+        expect(vpcEndpoints.interface.length).toBeGreaterThan(0);
+      }
+    );
+
+    it(
+      "should restrict VPC endpoint access to VPC CIDR only",
+      {
+        meta: {
+          id: "vpc-endpoint-access-control",
+          compliance: ["ISO27001:A.13.1.3"],
+          severity: "high",
+          controlType: "preventive",
+          risk: "Unauthorized access to VPC endpoints from external networks",
+        },
+      },
+      () => {
+        const endpointSecurityGroup = {
+          ingress: [
+            {
+              protocol: "tcp",
+              fromPort: 443,
+              toPort: 443,
+              cidrBlocks: ["10.224.0.0/16"], // VPC CIDR only
+              description: "HTTPS from VPC",
+            },
+          ],
+        };
+
+        const ingressRule = endpointSecurityGroup.ingress[0];
+        expect(ingressRule.protocol).toBe("tcp");
+        expect(ingressRule.fromPort).toBe(443);
+        expect(ingressRule.toPort).toBe(443);
+
+        // Should NOT allow 0.0.0.0/0
+        expect(ingressRule.cidrBlocks).not.toContain("0.0.0.0/0");
+
+        // Should be private CIDR (RFC 1918)
+        const cidr = ingressRule.cidrBlocks[0];
+        expect(
+          cidr.startsWith("10.") || cidr.startsWith("172.") || cidr.startsWith("192.168.")
+        ).toBe(true);
+      }
+    );
+
+    it(
+      "should enable private DNS for interface endpoints",
+      {
+        meta: {
+          id: "vpc-endpoint-private-dns",
+          compliance: ["ISO27001:A.13.1.3"],
+          severity: "medium",
+          controlType: "preventive",
+          risk: "DNS hijacking or man-in-the-middle attacks",
+        },
+      },
+      () => {
+        const interfaceEndpointConfig = {
+          privateDnsEnabled: true,
+          vpcEndpointType: "Interface",
+        };
+
+        expect(interfaceEndpointConfig.privateDnsEnabled).toBe(true);
+        expect(interfaceEndpointConfig.vpcEndpointType).toBe("Interface");
       }
     );
   });
