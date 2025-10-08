@@ -26,7 +26,8 @@
     "lint": "biome check --write .",
     "lint:check": "biome check --max-diagnostics=0 .",
     "format": "biome format --write .",
-    "format:check": "biome format ."
+    "format:check": "biome format .",
+    "compliance:report": "tsx scripts/compliance-report.ts"
   },
   "keywords": [
     "pulumi",
@@ -44,6 +45,7 @@
     "@biomejs/biome": "^2.2.5",
     "@tsconfig/strictest": "^2.0.6",
     "@vitest/ui": "^3.2.4",
+    "tsx": "^4.20.6",
     "typescript": "^5.9.2",
     "vitest": "^3.2.4"
   },
