@@ -20,6 +20,9 @@
     "build": "tsc -p tsconfig.json",
     "clean": "rm -rf dist",
     "prepare": "yarn build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
     "lint": "biome check --write .",
     "lint:check": "biome check --max-diagnostics=0 .",
     "format": "biome format --write .",
@@ -40,7 +43,9 @@
   "devDependencies": {
     "@biomejs/biome": "^2.2.5",
     "@tsconfig/strictest": "^2.0.6",
-    "typescript": "^5.9.2"
+    "@vitest/ui": "^3.2.4",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
   },
   "engines": {
     "node": ">=22.0.0",
