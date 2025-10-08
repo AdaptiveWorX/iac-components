@@ -891,9 +891,9 @@ export class SharedVpc extends pulumi.ComponentResource {
     // ====================
 
     // S3 Bucket for VPC Flow Logs (conditionally created)
-    let flowLogsBucket: aws.s3.BucketV2 | undefined;
+    let flowLogsBucket: aws.s3.Bucket | undefined;
     if (args.flowLogs.enabled) {
-      flowLogsBucket = new aws.s3.BucketV2(
+      flowLogsBucket = new aws.s3.Bucket(
         `${args.environment}-flow-logs`,
         {
           bucket: `${args.orgPrefix}-flow-logs-${args.accountId}-${args.region}`,
@@ -908,7 +908,7 @@ export class SharedVpc extends pulumi.ComponentResource {
       );
 
       // Enable versioning for flow logs bucket
-      new aws.s3.BucketVersioningV2(
+      new aws.s3.BucketVersioning(
         `${args.environment}-flow-logs-versioning`,
         {
           bucket: flowLogsBucket.id,
@@ -921,7 +921,7 @@ export class SharedVpc extends pulumi.ComponentResource {
 
       // Lifecycle policy for flow logs retention
       if (args.flowLogs.retentionDays !== undefined) {
-        new aws.s3.BucketLifecycleConfigurationV2(
+        new aws.s3.BucketLifecycleConfiguration(
           `${args.environment}-flow-logs-lifecycle`,
           {
             bucket: flowLogsBucket.id,
@@ -953,7 +953,7 @@ export class SharedVpc extends pulumi.ComponentResource {
       );
 
       // Enable default encryption
-      new aws.s3.BucketServerSideEncryptionConfigurationV2(
+      new aws.s3.BucketServerSideEncryptionConfiguration(
         `${args.environment}-flow-logs-encryption`,
         {
           bucket: flowLogsBucket.id,
