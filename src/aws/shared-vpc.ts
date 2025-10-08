@@ -11,6 +11,10 @@
  * - Logical organization: Foundation → Security → Operations → Sharing
  * - All resources deployed atomically in one stack
  * - Protected resources: VPC, subnets (prevent accidental deletion)
+ *
+ * @compliance ISO27001:A.13.1.1 - Network controls
+ * @compliance ISO27001:A.13.1.3 - Segregation of networks
+ * @compliance ISO27001:A.9.4.1 - Information access restriction
  */
 
 import * as aws from "@pulumi/aws";
@@ -891,9 +895,9 @@ export class SharedVpc extends pulumi.ComponentResource {
     // ====================
 
     // S3 Bucket for VPC Flow Logs (conditionally created)
-    let flowLogsBucket: aws.s3.BucketV2 | undefined;
+    let flowLogsBucket: aws.s3.Bucket | undefined;
     if (args.flowLogs.enabled) {
-      flowLogsBucket = new aws.s3.BucketV2(
+      flowLogsBucket = new aws.s3.Bucket(
         `${args.environment}-flow-logs`,
         {
           bucket: `${args.orgPrefix}-flow-logs-${args.accountId}-${args.region}`,
@@ -908,7 +912,11 @@ export class SharedVpc extends pulumi.ComponentResource {
       );
 
       // Enable versioning for flow logs bucket
-      new aws.s3.BucketVersioningV2(
+      // @compliance ISO27001:A.12.3.1 - Information backup
+      // @severity medium
+      // @control-type corrective
+      // @risk Data loss from accidental deletion or corruption
+      new aws.s3.BucketVersioning(
         `${args.environment}-flow-logs-versioning`,
         {
           bucket: flowLogsBucket.id,
@@ -921,7 +929,7 @@ export class SharedVpc extends pulumi.ComponentResource {
 
       // Lifecycle policy for flow logs retention
       if (args.flowLogs.retentionDays !== undefined) {
-        new aws.s3.BucketLifecycleConfigurationV2(
+        new aws.s3.BucketLifecycleConfiguration(
           `${args.environment}-flow-logs-lifecycle`,
           {
             bucket: flowLogsBucket.id,
@@ -940,6 +948,11 @@ export class SharedVpc extends pulumi.ComponentResource {
       }
 
       // Block public access
+      // @compliance ISO27001:A.13.1.3 - Segregation of networks
+      // @compliance ISO27001:A.9.4.1 - Information access restriction
+      // @severity critical
+      // @control-type preventive
+      // @risk Data breach via public internet exposure
       new aws.s3.BucketPublicAccessBlock(
         `${args.environment}-flow-logs-public-access`,
         {
@@ -953,7 +966,12 @@ export class SharedVpc extends pulumi.ComponentResource {
       );
 
       // Enable default encryption
-      new aws.s3.BucketServerSideEncryptionConfigurationV2(
+      // @compliance ISO27001:A.10.1.1 - Policy on cryptographic controls
+      // @compliance ISO27001:A.10.1.2 - Key management
+      // @severity critical
+      // @control-type preventive
+      // @risk Data breach via unencrypted storage
+      new aws.s3.BucketServerSideEncryptionConfiguration(
         `${args.environment}-flow-logs-encryption`,
         {
           bucket: flowLogsBucket.id,
@@ -969,6 +987,11 @@ export class SharedVpc extends pulumi.ComponentResource {
       );
 
       // VPC Flow Logs to S3 with security-enhanced format
+      // @compliance ISO27001:A.12.4.1 - Event logging
+      // @compliance ISO27001:A.12.4.3 - Administrator and operator logs
+      // @severity high
+      // @control-type detective
+      // @risk Undetected network intrusions or data exfiltration
       // Default format includes security fields for threat detection:
       // - tcp-flags: Detect SYN floods, port scans
       // - pkt-srcaddr/pkt-dstaddr: Detect NAT traversal, source spoofing
@@ -1006,6 +1029,11 @@ export class SharedVpc extends pulumi.ComponentResource {
     // ====================
 
     // VPC Endpoints (if configured)
+    // @compliance ISO27001:A.13.1.3 - Segregation of networks
+    // @compliance ISO27001:A.13.2.1 - Information transfer policies
+    // @severity high
+    // @control-type preventive
+    // @risk Data exfiltration via internet egress
     if (args.vpcEndpoints !== undefined && args.vpcEndpoints.length > 0) {
       // Security group for interface VPC endpoints (443 from VPC CIDR only)
       const vpcEndpointSg = new aws.ec2.SecurityGroup(
@@ -1098,6 +1126,11 @@ export class SharedVpc extends pulumi.ComponentResource {
     // ====================
 
     // RAM Resource Share for cross-account subnet sharing
+    // @compliance ISO27001:A.9.4.1 - Information access restriction
+    // @compliance ISO27001:A.13.1.3 - Segregation of networks
+    // @severity high
+    // @control-type preventive
+    // @risk Unauthorized cross-account access to network resources
     const ramShare = new aws.ram.ResourceShare(
       `${args.environment}-vpc-share`,
       {
