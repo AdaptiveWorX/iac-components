@@ -11,6 +11,10 @@
  * - Logical organization: Foundation → Security → Operations → Sharing
  * - All resources deployed atomically in one stack
  * - Protected resources: VPC, subnets (prevent accidental deletion)
+ *
+ * @compliance ISO27001:A.13.1.1 - Network controls
+ * @compliance ISO27001:A.13.1.3 - Segregation of networks
+ * @compliance ISO27001:A.9.4.1 - Information access restriction
  */
 
 import * as aws from "@pulumi/aws";
@@ -908,6 +912,7 @@ export class SharedVpc extends pulumi.ComponentResource {
       );
 
       // Enable versioning for flow logs bucket
+      // @compliance ISO27001:A.12.3.1 - Information backup
       new aws.s3.BucketVersioning(
         `${args.environment}-flow-logs-versioning`,
         {
@@ -940,6 +945,8 @@ export class SharedVpc extends pulumi.ComponentResource {
       }
 
       // Block public access
+      // @compliance ISO27001:A.13.1.3 - Segregation of networks
+      // @compliance ISO27001:A.9.4.1 - Information access restriction
       new aws.s3.BucketPublicAccessBlock(
         `${args.environment}-flow-logs-public-access`,
         {
@@ -953,6 +960,8 @@ export class SharedVpc extends pulumi.ComponentResource {
       );
 
       // Enable default encryption
+      // @compliance ISO27001:A.10.1.1 - Policy on cryptographic controls
+      // @compliance ISO27001:A.10.1.2 - Key management
       new aws.s3.BucketServerSideEncryptionConfiguration(
         `${args.environment}-flow-logs-encryption`,
         {

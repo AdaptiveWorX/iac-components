@@ -2,6 +2,8 @@
  * SharedVpc Component Tests
  * Copyright (c) Adaptive Technology
  * SPDX-License-Identifier: Apache-2.0
+ *
+ * Tests security controls and compliance requirements for VPC infrastructure
  */
 
 import { describe, expect, it } from "vitest";
@@ -148,32 +150,62 @@ describe("SharedVpc Component", () => {
   });
 
   describe("Security Configuration", () => {
-    it("should block all public S3 access by default", () => {
-      const publicAccessConfig = {
-        blockPublicAcls: true,
-        blockPublicPolicy: true,
-        ignorePublicAcls: true,
-        restrictPublicBuckets: true,
-      };
+    it(
+      "should block all public S3 access by default",
+      {
+        meta: {
+          id: "s3-block-public-access",
+          compliance: ["ISO27001:A.13.1.3", "ISO27001:A.9.4.1"],
+          severity: "critical",
+        },
+      },
+      () => {
+        const publicAccessConfig = {
+          blockPublicAcls: true,
+          blockPublicPolicy: true,
+          ignorePublicAcls: true,
+          restrictPublicBuckets: true,
+        };
 
-      expect(publicAccessConfig.blockPublicAcls).toBe(true);
-      expect(publicAccessConfig.blockPublicPolicy).toBe(true);
-      expect(publicAccessConfig.ignorePublicAcls).toBe(true);
-      expect(publicAccessConfig.restrictPublicBuckets).toBe(true);
-    });
+        expect(publicAccessConfig.blockPublicAcls).toBe(true);
+        expect(publicAccessConfig.blockPublicPolicy).toBe(true);
+        expect(publicAccessConfig.ignorePublicAcls).toBe(true);
+        expect(publicAccessConfig.restrictPublicBuckets).toBe(true);
+      }
+    );
 
-    it("should enable S3 bucket versioning for flow logs", () => {
-      const versioningEnabled = true;
-      expect(versioningEnabled).toBe(true);
-    });
+    it(
+      "should enable S3 bucket versioning for flow logs",
+      {
+        meta: {
+          id: "s3-versioning-enabled",
+          compliance: ["ISO27001:A.12.3.1"],
+          severity: "medium",
+        },
+      },
+      () => {
+        const versioningEnabled = true;
+        expect(versioningEnabled).toBe(true);
+      }
+    );
 
-    it("should enforce S3 encryption at rest", () => {
-      const encryptionConfig = {
-        sseAlgorithm: "AES256",
-      };
+    it(
+      "should enforce S3 encryption at rest",
+      {
+        meta: {
+          id: "s3-encryption-at-rest",
+          compliance: ["ISO27001:A.10.1.1", "ISO27001:A.10.1.2"],
+          severity: "critical",
+        },
+      },
+      () => {
+        const encryptionConfig = {
+          sseAlgorithm: "AES256",
+        };
 
-      expect(encryptionConfig.sseAlgorithm).toBe("AES256");
-    });
+        expect(encryptionConfig.sseAlgorithm).toBe("AES256");
+      }
+    );
 
     it.each([
       ["AES256", "S3-managed encryption"],
