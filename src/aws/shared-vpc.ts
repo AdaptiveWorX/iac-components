@@ -200,6 +200,18 @@ export interface SharedVpcArgs {
    * Resource tags
    */
   tags: Record<string, string>;
+
+  /**
+   * Protect critical resources (VPC, subnets) from accidental deletion
+   * - true (default for prd): Prevents destroy without explicit unprotect
+   * - false (dev/stg): Allows normal destroy for testing/iteration
+   *
+   * Recommended settings:
+   * - Dev: false (rapid iteration)
+   * - Stg: false (testing deployment workflows)
+   * - Prd: true (production safety)
+   */
+  protectResources?: boolean;
 }
 
 /**
@@ -309,7 +321,9 @@ export class SharedVpc extends pulumi.ComponentResource {
     super("adaptiveworx:aws:SharedVpc", name, {}, opts);
 
     const defaultOpts = { parent: this };
-    const protectedOpts = { parent: this, protect: true };
+    // Use protectResources from args, default to true for safety (production-first)
+    const shouldProtect = args.protectResources ?? true;
+    const protectedOpts = { parent: this, protect: shouldProtect };
 
     // ====================
     // FOUNDATION RESOURCES
