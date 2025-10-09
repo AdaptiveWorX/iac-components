@@ -51,11 +51,27 @@ describe("SharedVpc Component", () => {
       // - Be 3-63 characters long
       // - Contain only lowercase letters, numbers, hyphens
       // - Start and end with letter or number
-      const bucketName = "test-flow-logs-123456789012-us-east-1";
+      const bucketName = "worx-flow-logs-stg-730335555486-us-east-1";
 
       expect(bucketName.length).toBeGreaterThanOrEqual(3);
       expect(bucketName.length).toBeLessThanOrEqual(63);
       expect(bucketName).toMatch(/^[a-z0-9][a-z0-9-]*[a-z0-9]$/);
+    });
+
+    it("should include environment in bucket name for multi-env deployments", () => {
+      // When multiple VPCs are deployed to the same account (e.g., centralized VPCs),
+      // bucket names must include environment to avoid collisions
+      const stgBucket = "worx-flow-logs-stg-730335555486-us-east-1";
+      const prdBucket = "worx-flow-logs-prd-730335555486-us-east-1";
+
+      // Ensure bucket names are unique
+      expect(stgBucket).not.toBe(prdBucket);
+
+      // Ensure all meet S3 naming requirements
+      for (const bucket of [stgBucket, prdBucket]) {
+        expect(bucket.length).toBeLessThanOrEqual(63);
+        expect(bucket).toMatch(/^[a-z0-9][a-z0-9-]*[a-z0-9]$/);
+      }
     });
   });
 

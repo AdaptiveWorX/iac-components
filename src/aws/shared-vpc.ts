@@ -914,7 +914,7 @@ export class SharedVpc extends pulumi.ComponentResource {
       flowLogsBucket = new aws.s3.Bucket(
         `${args.environment}-flow-logs`,
         {
-          bucket: `${args.orgPrefix}-flow-logs-${args.accountId}-${args.region}`,
+          bucket: `${args.orgPrefix}-flow-logs-${args.environment}-${args.accountId}-${args.region}`,
           tags: {
             ...args.tags,
             Name: `${args.environment}-flow-logs`,
