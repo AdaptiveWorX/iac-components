@@ -292,6 +292,43 @@ function cidrSubnet(cidr: string, newbits: number, netnum: number): string {
 }
 
 /**
+ * Convert AWS region to abbreviated form for resource naming
+ * Examples: us-east-1 → use1, us-west-2 → usw2, eu-west-1 → euw1
+ */
+function getRegionAbbr(region: string): string {
+  const regionMap: Record<string, string> = {
+    "us-east-1": "use1",
+    "us-east-2": "use2",
+    "us-west-1": "usw1",
+    "us-west-2": "usw2",
+    "ca-central-1": "cac1",
+    "eu-west-1": "euw1",
+    "eu-west-2": "euw2",
+    "eu-west-3": "euw3",
+    "eu-central-1": "euc1",
+    "eu-north-1": "eun1",
+    "ap-southeast-1": "apse1",
+    "ap-southeast-2": "apse2",
+    "ap-northeast-1": "apne1",
+    "ap-northeast-2": "apne2",
+    "ap-south-1": "aps1",
+    "sa-east-1": "sae1",
+  };
+
+  return regionMap[region] ?? region;
+}
+
+/**
+ * Convert AWS availability zone to abbreviated suffix
+ * Examples: us-east-1a → use1a, us-west-2b → usw2b
+ */
+function getAzAbbr(az: string): string {
+  const region = az.slice(0, -1);
+  const azLetter = az.slice(-1);
+  return `${getRegionAbbr(region)}${azLetter}`;
+}
+
+/**
  * SharedVpc Component
  *
  * Single unified component that creates:
@@ -325,11 +362,16 @@ export class SharedVpc extends pulumi.ComponentResource {
     const shouldProtect = args.protectResources ?? true;
     const protectedOpts = { parent: this, protect: shouldProtect };
 
+    // Resource naming helpers
+    const regionAbbr = getRegionAbbr(args.region);
+    const baseName = `${args.orgPrefix}-${args.environment}-ops`;
+
     // ====================
     // FOUNDATION RESOURCES
     // ====================
 
     // VPC
+    const vpcName = `${baseName}-vpc-${regionAbbr}`;
     const vpc = new aws.ec2.Vpc(
       `${args.environment}-vpc`,
       {
@@ -339,7 +381,7 @@ export class SharedVpc extends pulumi.ComponentResource {
         assignGeneratedIpv6CidrBlock: args.enableIpv6 ?? false,
         tags: {
           ...args.tags,
-          Name: `${args.environment}-vpc`,
+          Name: vpcName,
           Environment: args.environment,
         },
       },
@@ -353,13 +395,14 @@ export class SharedVpc extends pulumi.ComponentResource {
     }
 
     // Internet Gateway
+    const igwName = `${baseName}-igw-${regionAbbr}`;
     const igw = new aws.ec2.InternetGateway(
       `${args.environment}-igw`,
       {
         vpcId: vpc.id,
         tags: {
           ...args.tags,
-          Name: `${args.environment}-igw`,
+          Name: igwName,
           Environment: args.environment,
         },
       },
@@ -395,6 +438,7 @@ export class SharedVpc extends pulumi.ComponentResource {
       }
 
       args.availabilityZones.forEach((az, i) => {
+        const azAbbr = getAzAbbr(az); // e.g., "use1a" from "us-east-1a"
         const azSuffix = az.slice(-1); // e.g., "a" from "us-east-1a"
         const cidr = cidrs[i];
 
@@ -403,6 +447,7 @@ export class SharedVpc extends pulumi.ComponentResource {
         }
 
         // Create subnet for this tier + AZ
+        const subnetName = `${baseName}-${tier.name}-${azAbbr}`;
         const subnet = new aws.ec2.Subnet(
           `${args.environment}-${tier.name}-${azSuffix}`,
           {
@@ -412,7 +457,7 @@ export class SharedVpc extends pulumi.ComponentResource {
             mapPublicIpOnLaunch: tier.routeToInternet, // Public subnets get public IPs
             tags: {
               ...args.tags,
-              Name: `${args.environment}-${tier.name}-${azSuffix}`,
+              Name: subnetName,
               Environment: args.environment,
               Tier: tier.name,
               Type: tier.routeToInternet ? "public" : "private",
@@ -450,16 +495,18 @@ export class SharedVpc extends pulumi.ComponentResource {
           throw new Error(`Missing AZ or subnet for NAT Gateway index ${i}`);
         }
 
+        const azAbbr = getAzAbbr(az);
         const azSuffix = az.slice(-1);
 
         // Elastic IP for NAT Gateway
+        const eipName = `${baseName}-nat-eip-${azAbbr}`;
         const eip = new aws.ec2.Eip(
           `${args.environment}-nat-eip-${azSuffix}`,
           {
             domain: "vpc",
             tags: {
               ...args.tags,
-              Name: `${args.environment}-nat-eip-${azSuffix}`,
+              Name: eipName,
               Environment: args.environment,
             },
           },
@@ -467,6 +514,7 @@ export class SharedVpc extends pulumi.ComponentResource {
         );
 
         // NAT Gateway
+        const natName = `${baseName}-nat-${azAbbr}`;
         const natGw = new aws.ec2.NatGateway(
           `${args.environment}-nat-${azSuffix}`,
           {
@@ -474,7 +522,7 @@ export class SharedVpc extends pulumi.ComponentResource {
             allocationId: eip.id,
             tags: {
               ...args.tags,
-              Name: `${args.environment}-nat-${azSuffix}`,
+              Name: natName,
               Environment: args.environment,
             },
           },
@@ -697,13 +745,14 @@ export class SharedVpc extends pulumi.ComponentResource {
     const publicTiers = subnetTiers.filter(tier => tier.routeToInternet);
 
     if (publicTiers.length > 0) {
+      const publicRtName = `${baseName}-public-rt-${regionAbbr}`;
       const publicRt = new aws.ec2.RouteTable(
         `${args.environment}-public-rt`,
         {
           vpcId: vpc.id,
           tags: {
             ...args.tags,
-            Name: `${args.environment}-public-rt`,
+            Name: publicRtName,
             Environment: args.environment,
             Type: "public",
           },
@@ -790,13 +839,15 @@ export class SharedVpc extends pulumi.ComponentResource {
             }
 
             // Create route table for this tier + AZ
+            const azAbbr = getAzAbbr(az);
+            const privateRtName = `${baseName}-${tier.name}-rt-${azAbbr}`;
             const privateRt = new aws.ec2.RouteTable(
               `${args.environment}-${tier.name}-rt-${azSuffix}`,
               {
                 vpcId: vpc.id,
                 tags: {
                   ...args.tags,
-                  Name: `${args.environment}-${tier.name}-rt-${azSuffix}`,
+                  Name: privateRtName,
                   Environment: args.environment,
                   Tier: tier.name,
                   Type: "private",
@@ -834,13 +885,14 @@ export class SharedVpc extends pulumi.ComponentResource {
       } else {
         // No NAT Gateways: shared route table with IPv6 egress only
         // Used by all private tiers (check individual tier ShareViaRam tags)
+        const sharedRtName = `${baseName}-shared-rt-${regionAbbr}`;
         const sharedRt = new aws.ec2.RouteTable(
           `${args.environment}-shared-rt`,
           {
             vpcId: vpc.id,
             tags: {
               ...args.tags,
-              Name: `${args.environment}-shared-rt`,
+              Name: sharedRtName,
               Environment: args.environment,
               Type: "shared",
               SharedByTiers: privateTiers.map(t => t.name).join(","),
@@ -911,13 +963,14 @@ export class SharedVpc extends pulumi.ComponentResource {
     // S3 Bucket for VPC Flow Logs (conditionally created)
     let flowLogsBucket: aws.s3.Bucket | undefined;
     if (args.flowLogs.enabled) {
+      const flowLogsBucketName = `${baseName}-flow-logs-${regionAbbr}`;
       flowLogsBucket = new aws.s3.Bucket(
         `${args.environment}-flow-logs`,
         {
           bucket: `${args.orgPrefix}-flow-logs-${args.environment}-${args.accountId}-${args.region}`,
           tags: {
             ...args.tags,
-            Name: `${args.environment}-flow-logs`,
+            Name: flowLogsBucketName,
             Environment: args.environment,
             Purpose: "vpc-flow-logs",
           },
@@ -1017,6 +1070,7 @@ export class SharedVpc extends pulumi.ComponentResource {
         "${vpc-id} ${subnet-id} ${instance-id} ${tcp-flags} ${type} " +
         "${pkt-srcaddr} ${pkt-dstaddr}";
 
+      const flowLogName = `${baseName}-vpc-flow-logs-${regionAbbr}`;
       new aws.ec2.FlowLog(
         `${args.environment}-flow-logs`,
         {
@@ -1027,7 +1081,7 @@ export class SharedVpc extends pulumi.ComponentResource {
           logFormat: args.flowLogs.customFormat ?? defaultSecurityFormat,
           tags: {
             ...args.tags,
-            Name: `${args.environment}-flow-logs`,
+            Name: flowLogName,
             Environment: args.environment,
           },
         },
@@ -1050,6 +1104,7 @@ export class SharedVpc extends pulumi.ComponentResource {
     // @risk Data exfiltration via internet egress
     if (args.vpcEndpoints !== undefined && args.vpcEndpoints.length > 0) {
       // Security group for interface VPC endpoints (443 from VPC CIDR only)
+      const vpcEndpointSgName = `${baseName}-vpce-sg-${regionAbbr}`;
       const vpcEndpointSg = new aws.ec2.SecurityGroup(
         `${args.environment}-vpce-sg`,
         {
@@ -1075,7 +1130,7 @@ export class SharedVpc extends pulumi.ComponentResource {
           ],
           tags: {
             ...args.tags,
-            Name: `${args.environment}-vpce-sg`,
+            Name: vpcEndpointSgName,
             Environment: args.environment,
             Purpose: "vpc-endpoints",
           },
@@ -1090,6 +1145,7 @@ export class SharedVpc extends pulumi.ComponentResource {
       // Create gateway endpoints (free, VPC-wide via route tables)
       for (const service of gatewayEndpoints) {
         if (args.vpcEndpoints?.includes(service) === true) {
+          const vpceGatewayName = `${baseName}-vpce-${service}-${regionAbbr}`;
           new aws.ec2.VpcEndpoint(
             `${args.environment}-vpce-${service}`,
             {
@@ -1100,7 +1156,7 @@ export class SharedVpc extends pulumi.ComponentResource {
               routeTableIds: pulumi.all(allRouteTableIds).apply(ids => ids),
               tags: {
                 ...args.tags,
-                Name: `${args.environment}-vpce-${service}`,
+                Name: vpceGatewayName,
                 Environment: args.environment,
                 Service: service,
                 Type: "gateway",
@@ -1113,6 +1169,7 @@ export class SharedVpc extends pulumi.ComponentResource {
 
       // Create interface endpoints (cost $, subnet-specific, private DNS)
       for (const service of interfaceEndpoints) {
+        const vpceInterfaceName = `${baseName}-vpce-${service.replace(/\./g, "-")}-${regionAbbr}`;
         new aws.ec2.VpcEndpoint(
           `${args.environment}-vpce-${service.replace(/\./g, "-")}`,
           {
@@ -1124,7 +1181,7 @@ export class SharedVpc extends pulumi.ComponentResource {
             privateDnsEnabled: true,
             tags: {
               ...args.tags,
-              Name: `${args.environment}-vpce-${service}`,
+              Name: vpceInterfaceName,
               Environment: args.environment,
               Service: service,
               Type: "interface",
@@ -1145,14 +1202,15 @@ export class SharedVpc extends pulumi.ComponentResource {
     // @severity high
     // @control-type preventive
     // @risk Unauthorized cross-account access to network resources
+    const ramShareName = `${baseName}-vpc-share-${regionAbbr}`;
     const ramShare = new aws.ram.ResourceShare(
       `${args.environment}-vpc-share`,
       {
-        name: `${args.environment}-vpc-share`,
+        name: ramShareName,
         allowExternalPrincipals: false,
         tags: {
           ...args.tags,
-          Name: `${args.environment}-vpc-share`,
+          Name: ramShareName,
           Environment: args.environment,
         },
       },
