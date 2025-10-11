@@ -140,3 +140,38 @@ The `publish.yml` workflow is configured as a **Trusted Publisher** on npm for p
 ---
 
 **Remember**: The goal is to build a **reliable, auditable CI/CD pipeline**. Manual publishing undermines this goal and creates technical debt.
+
+---
+
+## Architecture Patterns
+
+### Availability Zone Validation
+
+Components accepting `availabilityZones` must validate AZs belong to the specified `region`:
+
+```typescript
+for (const az of args.availabilityZones) {
+  if (!az.startsWith(args.region)) {
+    throw new Error(
+      `Invalid availability zone '${az}' for region '${args.region}'. ` +
+      `Expected AZ to start with region name.`
+    );
+  }
+}
+```
+
+Prevents cross-region configuration errors. Applied to: SharedVpc.
+
+### Region Explicit Parameters
+
+Always use explicit `region` parameters, never rely on environment variables:
+
+```typescript
+// GOOD
+const azs = await aws.getAvailabilityZones({
+  state: "available",
+  region: args.region,  // Explicit
+});
+```
+
+Ensures multi-region deployments work correctly.

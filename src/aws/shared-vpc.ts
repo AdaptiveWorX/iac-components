@@ -362,6 +362,22 @@ export class SharedVpc extends pulumi.ComponentResource {
     const shouldProtect = args.protectResources ?? true;
     const protectedOpts = { parent: this, protect: shouldProtect };
 
+    // ====================
+    // AVAILABILITY ZONE VALIDATION
+    // ====================
+    // Validate AZs belong to the specified region (fail fast)
+    // This prevents deploying resources in wrong region due to misconfiguration
+    for (const az of args.availabilityZones) {
+      if (!az.startsWith(args.region)) {
+        throw new Error(
+          `Invalid availability zone '${az}' for region '${args.region}'. ` +
+            "Expected AZ to start with region name. " +
+            "All availability zones must belong to the target region. " +
+            `Example: For region 'us-west-2', valid AZs are 'us-west-2a', 'us-west-2b', etc.`
+        );
+      }
+    }
+
     // Resource naming helpers
     const regionAbbr = getRegionAbbr(args.region);
     const baseName = `${args.orgPrefix}-${args.environment}-ops`;
